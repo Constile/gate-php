@@ -63,7 +63,7 @@ final class Gate
 
     private ConfigCache $cache;
 
-    private Locks $locks;
+    private LockStore $locks;
 
     /** Config refreshes already scheduled in this process, by cache key. @var array<string, true> */
     private static array $refreshing = [];
@@ -93,6 +93,8 @@ final class Gate
      * @param bool $requireDomain For installs that fetch their own pages: handle only requests for the site's
      *     registered domain from the config (or its www twin), pass every other request to the app untouched, and
      *     give the origin that domain to fetch from. Without a domain in the config, pages pass through.
+     * @param LockStore|null $locks Where the config fetch lock lives instead of files in $lockDir, such as the host's
+     *     database.
      */
     public function __construct(
         private string $siteId,
@@ -111,6 +113,7 @@ final class Gate
         ?callable $log = null,
         ?string $lockDir = null,
         private bool $requireDomain = false,
+        ?LockStore $locks = null,
     ) {
         $this->origin = \Closure::fromCallable($origin);
         $this->forward = $forward === null ? $this->origin : \Closure::fromCallable($forward);
@@ -120,7 +123,7 @@ final class Gate
         $this->log = $log === null ? null : \Closure::fromCallable($log);
         $this->network = $network ?? Clients::auto();
         $this->cache = $cache ?? Caches::auto();
-        $this->locks = new Locks(rtrim($lockDir ?? sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'constile-gate', '/\\'));
+        $this->locks = $locks ?? new Locks(rtrim($lockDir ?? sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'constile-gate', '/\\'));
     }
 
     /** CONSTILE_DISABLED's on values: true, or 1, true, yes, or on in any case. */
@@ -141,6 +144,7 @@ final class Gate
      */
     public static function disabledByEnv(): bool
     {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- the server's own setting, compared with isOn(), never output.
         foreach ([$_SERVER['CONSTILE_DISABLED'] ?? null, $_ENV['CONSTILE_DISABLED'] ?? null, getenv('CONSTILE_DISABLED')] as $v) {
             if ($v !== null && $v !== false && $v !== '') {
                 return self::isOn($v);
@@ -528,6 +532,7 @@ final class Gate
         if ($res->status < 200 || $res->status > 299) {
             $detail = json_decode($res->body(), false);
             $error = is_object($detail) ? ($detail->error ?? null) : null;
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- never printed as HTML: the gate JSON-encodes it, and hosts escape it where they show it.
             throw new NetworkError($res->status, is_scalar($error) ? (string) $error : "network returned {$res->status}");
         }
         return Json::decode($res->body());
@@ -610,7 +615,7 @@ final class Gate
         if (preg_match('/[\\\\\s\x00-\x1f\x7f]/', $releaseUrl) === 1) {
             return $fallback;
         }
-        $parts = parse_url($releaseUrl);
+        $parts = parse_url($releaseUrl); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- plain PHP outside WordPress too; the URL is checked above.
         if ($parts === false || array_key_exists('user', $parts) || array_key_exists('pass', $parts)) {
             return $fallback;
         }

@@ -42,7 +42,7 @@ final class SelfFetch
 
     private ?Url $connect;
 
-    private Locks $locks;
+    private LockStore $locks;
 
     /**
      * @param string $bypass The install's bypass value.
@@ -53,6 +53,8 @@ final class SelfFetch
      * @param float $timeout Seconds for each fetch.
      * @param int $maxInFlight Fetches that may run at once across the server's PHP processes.
      * @param string|null $lockDir Where the cross-process locks live. Defaults to the system's temporary directory.
+     * @param LockStore|null $locks The cross-process locks instead of files in $lockDir, such as the host's database.
+     *     They must be this install's own: sites that share them share slots.
      */
     public function __construct(
         private HttpClient $client,
@@ -62,14 +64,19 @@ final class SelfFetch
         private float $timeout = 3.0,
         private int $maxInFlight = 2,
         ?string $lockDir = null,
+        ?LockStore $locks = null,
     ) {
         if ($connectUrl !== null && trim($connectUrl) !== '') {
             $this->connect = Url::parse($connectUrl) ?? throw new \InvalidArgumentException('The connect URL must be an http or https URL');
         } else {
             $this->connect = null;
         }
-        $base = rtrim($lockDir ?? sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'constile-gate', '/\\');
-        $this->locks = new Locks($base . DIRECTORY_SEPARATOR . $this->lockNamespace());
+        if ($locks !== null) {
+            $this->locks = $locks;
+        } else {
+            $base = rtrim($lockDir ?? sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'constile-gate', '/\\');
+            $this->locks = new Locks($base . DIRECTORY_SEPARATOR . $this->lockNamespace());
+        }
     }
 
     /** The lock folder's name for this install, so sites that share a server don't share slots. */

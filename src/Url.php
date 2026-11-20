@@ -58,7 +58,7 @@ final class Url
     public static function parse(string $url): ?self
     {
         $url = trim($url, "\x00..\x20");
-        $p = parse_url($url);
+        $p = parse_url($url); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- plain PHP outside WordPress too; the result is normalized below.
         if ($p === false || !isset($p['scheme'], $p['host'])) {
             return null;
         }

@@ -115,9 +115,11 @@ final class Headers implements \IteratorAggregate, \Countable
     private static function check(string $name, string $value): void
     {
         if ($name === '' || preg_match('/[^!#$%&\'*+\-.^_`|~0-9A-Za-z]/', $name) === 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- the gate never prints exceptions; this one names a header it refuses to send.
             throw new \InvalidArgumentException("Invalid header name: {$name}");
         }
         if (strpbrk($value, "\r\n\0") !== false) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- the gate never prints exceptions; this one names a header it refuses to send.
             throw new \InvalidArgumentException("Invalid value for header {$name}");
         }
     }

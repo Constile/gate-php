@@ -11,7 +11,7 @@ namespace Constile\Gate;
  * directory can't be used, tryLock() grants a lock that guards nothing and
  * isHeld() answers false: the gate then works as if it had no locks.
  */
-final class Locks
+final class Locks implements LockStore
 {
     private bool $usable;
 
@@ -25,13 +25,17 @@ final class Locks
     {
         $fp = $this->open($name);
         if ($fp === null) {
-            return new Lock(null);
+            return new Lock();
         }
         if (!flock($fp, ($shared ? LOCK_SH : LOCK_EX) | LOCK_NB)) {
             fclose($fp);
             return null;
         }
-        return new Lock($fp);
+        // The operating system also releases it when the process ends.
+        return new Lock(static function () use ($fp): void {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+        });
     }
 
     /** Waits up to $seconds for the lock; null when it's still held then. */

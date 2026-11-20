@@ -146,6 +146,11 @@ if (!SelfFetch::isBypass($_SERVER['HTTP_CONSTILE_GATE_BYPASS'] ?? null, $bypass)
 // Your app handles the request as usual.
 ```
 
+`Gate` and `SelfFetch` keep their cross-process locks in files in the system's
+temporary directory. To keep them somewhere else, such as your database, pass
+`locks:` your own `LockStore`. The WordPress plugin keeps them in the options
+table.
+
 ## Paywalled content
 
 Gate 0.6.0 and later can fetch a paywalled article with the release
