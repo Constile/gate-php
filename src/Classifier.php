@@ -13,10 +13,19 @@ final class Classifier
     private const GENERIC_BOT = '/bot\b|crawler|spider|headless|scraper/';
 
     /**
+     * The cookie the offer page's fallback sets in a person's browser (any value). A request that carries it is never
+     * taken for a script posing as a browser.
+     */
+    public const BROWSER_COOKIE = 'constile_browser';
+
+    /**
+     * Kind "disguised" (a browser's user agent without the headers browsers send) comes back only when $disguised asks
+     * for the check; a gate asks only when its site sends those an ad.
+     *
      * @param list<object> $registry
      * @return array{kind: string, agent?: object}
      */
-    public static function classify(Headers $headers, array $registry): array
+    public static function classify(Headers $headers, array $registry, bool $disguised = false): array
     {
         $ua = Text::lower((string) $headers->get('user-agent'));
         $byLength = array_values(array_filter($registry, 'is_object'));
@@ -44,9 +53,26 @@ final class Classifier
         }
         // Never show an offer to a person: any browser-looking client without a bot marker is a browser.
         if (str_starts_with($ua, 'mozilla/') && preg_match(self::GENERIC_BOT, $ua) !== 1) {
-            return ['kind' => 'browser'];
+            return ['kind' => $disguised && self::posesAsBrowser($headers) ? 'disguised' : 'browser'];
         }
         return ['kind' => 'unknown_client'];
+    }
+
+    /**
+     * Whether a request with a browser's user agent leaves out what every browser sends: neither Accept-Language nor
+     * Sec-Fetch-Mode (a header counts when it's there at all, even empty), and no browser cookie.
+     */
+    public static function posesAsBrowser(Headers $headers): bool
+    {
+        if ($headers->has('accept-language') || $headers->has('sec-fetch-mode')) {
+            return false;
+        }
+        foreach (explode(';', $headers->get('cookie') ?? '') as $part) {
+            if (Text::trim(explode('=', $part, 2)[0]) === self::BROWSER_COOKIE) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The origin named in a Signature-Agent header, in either the dictionary or the quoted-string form. */

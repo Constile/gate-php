@@ -9,7 +9,7 @@
         "source": "https://github.com/Constile/gate-php",
         "docs": "https://constile.app/setup"
     },
-    "version": "0.6.0",
+    "version": "0.7.0",
     "keywords": ["sponsored access", "ai agents", "paywall", "laravel", "symfony", "middleware"],
     "require": {
         "php": ">=8.1"

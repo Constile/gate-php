@@ -27,17 +27,17 @@ every platform.
 ## Install
 
 ```sh
-composer require constile/gate:^0.6
+composer require constile/gate:^0.7
 ```
 
-Or download `constile-gate-php-0.6.0.zip` from your site page in the Constile
+Or download `constile-gate-php-0.7.0.zip` from your site page in the Constile
 dashboard and install it from a local folder:
 
 ```sh
 mkdir -p packages
-cp ~/Downloads/constile-gate-php-0.6.0.zip packages/
+cp ~/Downloads/constile-gate-php-0.7.0.zip packages/
 composer config repositories.constile artifact ./packages
-composer require constile/gate:^0.6
+composer require constile/gate:^0.7
 ```
 
 ## Set up Laravel
@@ -163,6 +163,22 @@ what it releases and never logs the headers. To set up a method, open your
 site's page in the dashboard and choose a content API, a paywall rule, or a
 Constile login. A paywalled page gets offers only after the method works and
 the gate is 0.6.0 or later.
+
+## Scripts that pose as a browser
+
+Some scripts send a browser's user agent so they get your pages as a person
+would. Gate 0.7.0 and later can send them an ad instead: on your site's page
+in the dashboard, under **Settings**, set **Scripts that pose as a browser**
+to **Send them an ad**. The gate then takes a request with a browser's user
+agent for a script when it sends neither `Accept-Language` nor
+`Sec-Fetch-Mode`, headers browsers always send, and has no `constile_browser`
+cookie. These ads count toward your site's daily limit on earnings from agents
+nothing could verify. If a person's browser is ever taken for a script, the ad
+page says the page loads in a moment, sets the `constile_browser` cookie, and
+reloads, so the person gets your page. That takes JavaScript and cookies, and,
+if your site sends a `Content-Security-Policy`, one that allows inline
+scripts. The setting starts at **Serve them the normal page**, and older gates
+ignore it.
 
 ## Turn it off
 

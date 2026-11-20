@@ -26,7 +26,7 @@ use Constile\Gate\Http\HttpClient;
  */
 final class Gate
 {
-    public const VERSION = 'constile-gate 0.6.0';
+    public const VERSION = 'constile-gate 0.7.0';
 
     /** How long a config may serve past its TTL while the network can't give a fresh one. */
     public const CONFIG_STALE_S = 86400;
@@ -261,7 +261,9 @@ final class Gate
             }
         }
 
-        $cls = Classifier::classify($request->headers, self::listOf($config->agents ?? null));
+        // A site that sends scripts posing as a browser an ad asks the classifier to look for them; otherwise they're browsers.
+        $cls = Classifier::classify($request->headers, self::listOf($config->agents ?? null), ($config->disguised_clients ?? null) === 'offer');
+        $disguised = false;
         if ($cls['kind'] === 'agent') {
             if (($cls['agent']->tier ?? null) === 'blocked') {
                 return $this->pass($request);
@@ -269,13 +271,17 @@ final class Gate
             $agentId = (string) ($cls['agent']->id ?? '');
         } elseif ($cls['kind'] === 'unknown_client' && ($config->unknown_clients ?? null) === 'offer') {
             $agentId = null;
+        } elseif ($cls['kind'] === 'disguised') {
+            // An unidentified client, whatever unknown_clients says. The network adds a way back to the page for a person.
+            $agentId = null;
+            $disguised = true;
         } else {
             return $this->pass($request);
         }
 
         if ($demandOnly) {
             // The site is in review: serve the page as usual, and tell the network an agent asked for it.
-            $body = $this->demandRequest($request, $url, $agentId, $signals);
+            $body = $this->demandRequest($request, $url, $agentId, $disguised, $signals);
             $report = function () use ($body): void {
                 try {
                     $this->call('/demand', 'POST', $body);
@@ -317,6 +323,9 @@ final class Gate
             'user_agent' => $request->headers->get('user-agent') ?? '',
             'signals' => $this->signals($request, $agentId, $signals),
         ];
+        if ($disguised) {
+            $offerReq['disguised'] = true;
+        }
         // Web Bot Auth: forward the signature unchanged so the network verifies it, not the gate.
         $signature = self::signature($request, $url);
         if ($signature !== null) {
@@ -688,7 +697,7 @@ final class Gate
     }
 
     /** @param array<string, mixed>|null $signals */
-    private function demandRequest(GateRequest $request, Url $url, ?string $agentId, ?array $signals): array
+    private function demandRequest(GateRequest $request, Url $url, ?string $agentId, bool $disguised, ?array $signals): array
     {
         $body = [
             'url' => $url->toString(),
@@ -696,6 +705,9 @@ final class Gate
             'user_agent' => $request->headers->get('user-agent') ?? '',
             'signals' => $this->signals($request, $agentId, $signals),
         ];
+        if ($disguised) {
+            $body['disguised'] = true;
+        }
         $signature = self::signature($request, $url);
         if ($signature !== null) {
             $body['signature'] = $signature;
